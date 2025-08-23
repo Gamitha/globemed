@@ -11,6 +11,9 @@ public class MedicalRecord {
     private String treatment;
     private String notes;
     private String doctorId;
+    private String testsPerformed;
+    private String testResults;
+    private String recommendations;
 
     public MedicalRecord() {
         this.id = UUID.randomUUID();
@@ -50,7 +53,32 @@ public class MedicalRecord {
             return this;
         }
 
+        public Builder withTestsPerformed(String testsPerformed) {
+            record.testsPerformed = testsPerformed;
+            return this;
+        }
+
+        public Builder withTestResults(String testResults) {
+            record.testResults = testResults;
+            return this;
+        }
+
+        public Builder withRecommendations(String recommendations) {
+            record.recommendations = recommendations;
+            return this;
+        }
+
         public MedicalRecord build() {
+            // Validate required fields
+            if (record.patientId == null) {
+                throw new IllegalStateException("Patient ID is required");
+            }
+            if (record.doctorId == null) {
+                throw new IllegalStateException("Doctor ID is required");
+            }
+            if (record.diagnosis == null || record.diagnosis.trim().isEmpty()) {
+                throw new IllegalStateException("Diagnosis is required");
+            }
             return record;
         }
     }
@@ -63,4 +91,7 @@ public class MedicalRecord {
     public String getTreatment() { return treatment; }
     public String getNotes() { return notes; }
     public String getDoctorId() { return doctorId; }
+    public String getTestsPerformed() { return testsPerformed != null ? testsPerformed : "None"; }
+    public String getTestResults() { return testResults != null ? testResults : "No results available"; }
+    public String getRecommendations() { return recommendations != null ? recommendations : "No recommendations"; }
 }
