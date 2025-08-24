@@ -1,66 +1,130 @@
 package com.globemed.core.util;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.io.PrintStream;
+import org.slf4j.LoggerFactory;
 
 /**
- * Simple logger utility that provides basic logging functionality.
- * Acts as a facade for logging operations with fallback to System.out/err.
+ * Logger utility class that provides a wrapper around SLF4J/Logback logging.
+ * Ensures consistent logging across the application with proper separation of log levels.
  */
 public class Logger {
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-    private final String className;
-    private final PrintStream infoStream;
-    private final PrintStream errorStream;
+    private final org.slf4j.Logger logger;
 
     private Logger(Class<?> clazz) {
-        this.className = clazz.getSimpleName();
-        this.infoStream = System.out;
-        this.errorStream = System.err;
+        this.logger = LoggerFactory.getLogger(clazz);
     }
 
+    /**
+     * Get a logger instance for the specified class.
+     *
+     * @param clazz The class to get the logger for
+     * @return Logger instance
+     */
     public static Logger getLogger(Class<?> clazz) {
         return new Logger(clazz);
     }
 
+    /**
+     * Log a debug message.
+     *
+     * @param message The message to log
+     */
+    public void debug(String message) {
+        logger.debug(message);
+    }
+
+    /**
+     * Log a debug message with parameters.
+     *
+     * @param message The message to log with {} placeholders
+     * @param args The arguments to replace placeholders
+     */
+    public void debug(String message, Object... args) {
+        logger.debug(message, args);
+    }
+
+    /**
+     * Log an info message.
+     *
+     * @param message The message to log
+     */
+    public void info(String message) {
+        logger.info(message);
+    }
+
+    /**
+     * Log an info message with parameters.
+     *
+     * @param message The message to log with {} placeholders
+     * @param args The arguments to replace placeholders
+     */
     public void info(String message, Object... args) {
-        log(infoStream, "INFO", formatMessage(message, args));
+        logger.info(message, args);
     }
 
-    public void error(String message, Throwable error) {
-        String fullMessage = formatMessage(message) + "\n" + getStackTrace(error);
-        log(errorStream, "ERROR", fullMessage);
+    /**
+     * Log a warning message.
+     *
+     * @param message The message to log
+     */
+    public void warn(String message) {
+        logger.warn(message);
     }
 
-    private void log(PrintStream stream, String level, String message) {
-        stream.println(String.format("%s [%s] %s - %s",
-            LocalDateTime.now().format(formatter),
-            level,
-            className,
-            message));
+    /**
+     * Log a warning message with parameters.
+     *
+     * @param message The message to log with {} placeholders
+     * @param args The arguments to replace placeholders
+     */
+    public void warn(String message, Object... args) {
+        logger.warn(message, args);
     }
 
-    private String formatMessage(String message, Object... args) {
-        if (args == null || args.length == 0) {
-            return message;
-        }
-        String result = message;
-        for (Object arg : args) {
-            result = result.replaceFirst("\\{\\}", String.valueOf(arg));
-        }
-        return result;
+    /**
+     * Log a warning message with exception.
+     *
+     * @param message The message to log
+     * @param e The exception to log
+     */
+    public void warn(String message, Throwable e) {
+        logger.warn(message, e);
     }
 
-    private String getStackTrace(Throwable error) {
-        if (error == null) return "";
-        StringBuilder sb = new StringBuilder();
-        error.printStackTrace(new PrintStream(System.err) {
-            @Override
-            public void println(String x) {
-                sb.append(x).append("\n");
-            }
-        });
-        return sb.toString();
+    /**
+     * Log an error message.
+     *
+     * @param message The message to log
+     */
+    public void error(String message) {
+        logger.error(message);
+    }
+
+    /**
+     * Log an error message with parameters.
+     *
+     * @param message The message to log with {} placeholders
+     * @param args The arguments to replace placeholders
+     */
+    public void error(String message, Object... args) {
+        logger.error(message, args);
+    }
+
+    /**
+     * Log an error message with exception.
+     *
+     * @param message The message to log
+     * @param e The exception to log
+     */
+    public void error(String message, Throwable e) {
+        logger.error(message, e);
+    }
+
+    /**
+     * Check if debug logging is enabled.
+     *
+     * @return true if debug is enabled
+     */
+    public boolean isDebugEnabled() {
+        return logger.isDebugEnabled();
     }
 }
