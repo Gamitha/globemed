@@ -172,7 +172,7 @@ public class DoctorManagementPanel extends JPanel {
             Doctor doctor = new Doctor.Builder()
                 .withFirstName(firstNameField.getText())
                 .withLastName(lastNameField.getText())
-                .withSpecialization(specializationField.getText())
+                .withSpecialty(specializationField.getText())
                 .withContactNumber(contactField.getText())
                 .withEmail(emailField.getText())
                 .withWorkingHours(startTime, endTime)
@@ -208,16 +208,21 @@ public class DoctorManagementPanel extends JPanel {
     private void refreshDoctorTable() {
         tableModel.setRowCount(0);
         for (Doctor doctor : controller.getAllDoctors()) {
+            String workingHours = "Not set";
+            if (doctor.getStartTime() != null && doctor.getEndTime() != null) {
+                workingHours = String.format("%s - %s",
+                    doctor.getStartTime().toString(),
+                    doctor.getEndTime().toString());
+            }
+
             Object[] row = {
                 doctor.getId().toString().substring(0, 8),
                 doctor.getFullName(),
                 doctor.getSpecialization(),
                 doctor.getContactNumber(),
                 doctor.getEmail(),
-                String.format("%s - %s",
-                    doctor.getStartTime().toString(),
-                    doctor.getEndTime().toString()),
-                String.join(", ", doctor.getWorkingDays())
+                workingHours,
+                doctor.getWorkingDays() != null ? String.join(", ", doctor.getWorkingDays()) : "Not set"
             };
             tableModel.addRow(row);
         }

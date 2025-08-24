@@ -93,44 +93,44 @@ public class DoctorController {
 
     private void addSampleDoctors() {
         try {
-            // Add some sample doctors
-            Set<String> weekdays = Set.of("Monday", "Tuesday", "Wednesday", "Thursday", "Friday");
-            Set<String> fullWeek = Set.of("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday");
-
             Doctor doc1 = new Doctor.Builder()
                 .withFirstName("John")
                 .withLastName("Smith")
-                .withSpecialization("Cardiology")
-                .withContactNumber("123-555-0101")
+                .withSpecialty("General Medicine")
+                .withContactNumber("555-0123")
                 .withEmail("john.smith@globemed.com")
-                .withWorkingHours(LocalTime.of(9, 0), LocalTime.of(17, 0))
-                .withWorkingDays(weekdays)
                 .build();
             doctors.put(doc1.getId(), doc1);
 
             Doctor doc2 = new Doctor.Builder()
                 .withFirstName("Sarah")
                 .withLastName("Johnson")
-                .withSpecialization("Pediatrics")
-                .withContactNumber("123-555-0102")
+                .withSpecialty("Cardiology")
+                .withContactNumber("555-0124")
                 .withEmail("sarah.johnson@globemed.com")
-                .withWorkingHours(LocalTime.of(8, 0), LocalTime.of(16, 0))
-                .withWorkingDays(weekdays)
                 .build();
             doctors.put(doc2.getId(), doc2);
 
             Doctor doc3 = new Doctor.Builder()
                 .withFirstName("Michael")
                 .withLastName("Brown")
-                .withSpecialization("Emergency Medicine")
-                .withContactNumber("123-555-0103")
+                .withSpecialty("Pediatrics")
+                .withContactNumber("555-0125")
                 .withEmail("michael.brown@globemed.com")
-                .withWorkingHours(LocalTime.of(0, 0), LocalTime.of(23, 59))
-                .withWorkingDays(fullWeek)
                 .build();
             doctors.put(doc3.getId(), doc3);
+
+            Doctor doc4 = new Doctor.Builder()
+                .withFirstName("Emily")
+                .withLastName("Davis")
+                .withSpecialty("Neurology")
+                .withContactNumber("555-0126")
+                .withEmail("emily.davis@globemed.com")
+                .build();
+            doctors.put(doc4.getId(), doc4);
+
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize sample doctors", e);
         }
     }
 }
