@@ -7,6 +7,7 @@ import com.globemed.core.security.SecurityService;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class BillingController {
     private final SecurityService securityService;
@@ -101,6 +102,6 @@ public class BillingController {
         );
         return bills.values().stream()
             .filter(bill -> bill.getPatientId().equals(patientId))
-            .toList();
+            .collect(Collectors.toList());
     }
 }
