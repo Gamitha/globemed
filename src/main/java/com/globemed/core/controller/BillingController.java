@@ -92,4 +92,15 @@ public class BillingController {
         );
         return Optional.ofNullable(claims.get(id));
     }
+
+    public List<Bill> getBillsByPatient(UUID patientId) {
+        securityService.checkAccess(
+            securityService.getCurrentUser(),
+            "billing:read",
+            Set.of(Permission.READ)
+        );
+        return bills.values().stream()
+            .filter(bill -> bill.getPatientId().equals(patientId))
+            .toList();
+    }
 }

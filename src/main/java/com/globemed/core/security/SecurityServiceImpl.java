@@ -80,4 +80,13 @@ public class SecurityServiceImpl implements SecurityService {
     public String getCurrentUser() {
         return currentUser;
     }
+
+    @Override
+    public boolean hasRole(Role role) {
+        if (currentUser == null) {
+            return false;
+        }
+        Set<Role> roles = userRoles.get(currentUser);
+        return roles != null && roles.contains(role);
+    }
 }

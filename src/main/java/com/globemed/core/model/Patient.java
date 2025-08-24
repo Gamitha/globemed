@@ -124,7 +124,18 @@ public class Patient {
         return new ArrayList<>(medicalRecords);
     }
 
+    public List<MedicalRecord> getMedicalHistory() {
+        return new ArrayList<>(medicalRecords); // Return a copy to prevent modification
+    }
+
     public void addMedicalRecord(MedicalRecord record) {
-        this.medicalRecords.add(record);
+        if (record == null) {
+            throw new IllegalArgumentException("Medical record cannot be null");
+        }
+        medicalRecords.add(record);
+    }
+
+    public String getFullName() {
+        return firstName + " " + lastName;
     }
 }

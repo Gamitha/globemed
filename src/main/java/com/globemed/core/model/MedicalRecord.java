@@ -10,7 +10,7 @@ public class MedicalRecord {
     private String diagnosis;
     private String treatment;
     private String notes;
-    private String doctorId;
+    private UUID doctorId;  // Changed from String to UUID
     private String testsPerformed;
     private String testResults;
     private String recommendations;
@@ -48,7 +48,7 @@ public class MedicalRecord {
             return this;
         }
 
-        public Builder withDoctorId(String doctorId) {
+        public Builder withDoctorId(UUID doctorId) {  // Changed from String to UUID
             record.doctorId = doctorId;
             return this;
         }
@@ -88,10 +88,10 @@ public class MedicalRecord {
     public UUID getPatientId() { return patientId; }
     public LocalDateTime getDateTime() { return dateTime; }
     public String getDiagnosis() { return diagnosis; }
-    public String getTreatment() { return treatment; }
-    public String getNotes() { return notes; }
-    public String getDoctorId() { return doctorId; }
-    public String getTestsPerformed() { return testsPerformed != null ? testsPerformed : "None"; }
-    public String getTestResults() { return testResults != null ? testResults : "No results available"; }
-    public String getRecommendations() { return recommendations != null ? recommendations : "No recommendations"; }
+    public String getTreatment() { return treatment != null ? treatment : ""; }
+    public String getNotes() { return notes != null ? notes : ""; }
+    public UUID getDoctorId() { return doctorId; }  // Changed from String to UUID
+    public String getTestsPerformed() { return testsPerformed != null ? testsPerformed : ""; }
+    public String getTestResults() { return testResults != null ? testResults : ""; }
+    public String getRecommendations() { return recommendations != null ? recommendations : ""; }
 }

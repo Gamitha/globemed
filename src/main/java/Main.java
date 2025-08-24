@@ -115,16 +115,17 @@ public class Main {
         contentPanel.add(new PatientManagementPanel(patientController), "PATIENTS");
         contentPanel.add(new AppointmentPanel(appointmentController, patientController, doctorController), "APPOINTMENTS");
         contentPanel.add(new DoctorManagementPanel(doctorController), "DOCTORS");
+        contentPanel.add(new MedicalRecordPanel(patientController, doctorController), "RECORDS");  // Add Medical Records panel
         contentPanel.add(new BillingPanel(billingController, patientController), "BILLING");
         contentPanel.add(new ReportPanel(reportController, patientController), "REPORTS");
 
         splitPane.setRightComponent(contentPanel);
+        mainFrame.add(splitPane);
 
         // Create menu bar
         JMenuBar menuBar = createMenuBar();
         mainFrame.setJMenuBar(menuBar);
 
-        mainFrame.add(splitPane);
         mainFrame.setVisible(true);
 
         // Show welcome panel by default
@@ -144,6 +145,7 @@ public class Main {
         addMenuItem(viewMenu, "Patients", "PATIENTS");
         addMenuItem(viewMenu, "Appointments", "APPOINTMENTS");
         addMenuItem(viewMenu, "Doctors", "DOCTORS");
+        addMenuItem(viewMenu, "Medical Records", "RECORDS");  // Add Medical Records menu item
         addMenuItem(viewMenu, "Billing", "BILLING");
         addMenuItem(viewMenu, "Reports", "REPORTS");
 
@@ -176,17 +178,19 @@ public class Main {
         menu.add(menuItem);
     }
 
-    private static JPanel createSidebar() {
+    private static JPanel createSidebar()
+    {
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        sidebar.setBackground(new Color(240, 240, 240)); // Light gray background
+        sidebar.setBackground(new Color(240, 240, 240));
 
         addSidebarButton(sidebar, "Dashboard", "WELCOME");
         addSidebarButton(sidebar, "Patient Management", "PATIENTS");
         addSidebarButton(sidebar, "Doctor Management", "DOCTORS");
+        addSidebarButton(sidebar, "Medical Records", "RECORDS");
         addSidebarButton(sidebar, "Appointments", "APPOINTMENTS");
-        addSidebarButton(sidebar, "Billing & Insurance", "BILLING");
+        addSidebarButton(sidebar, "Billing", "BILLING");
         addSidebarButton(sidebar, "Reports", "REPORTS");
 
         // Add glue to push buttons to top
@@ -291,3 +295,4 @@ public class Main {
                 JOptionPane.ERROR_MESSAGE);
     }
 }
+

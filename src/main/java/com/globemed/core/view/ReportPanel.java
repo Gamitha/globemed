@@ -110,6 +110,7 @@ public class ReportPanel extends JPanel implements DataChangeListener {
     private void generateReport() {
         try {
             String selectedPatient = (String) patientSelector.getSelectedItem();
+
             if (selectedPatient == null || selectedPatient.isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                     "Please select a patient",

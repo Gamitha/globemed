@@ -25,6 +25,12 @@ public class ReportController {
         this.billingController = billingController;
     }
 
+    public enum ReportType {
+        TREATMENT_SUMMARY,
+        FINANCIAL,
+        DIAGNOSTIC
+    }
+
     public String generateReport(UUID patientId, ReportType type) {
         // Check permissions
         securityService.checkAccess(
@@ -52,42 +58,26 @@ public class ReportController {
                 visitor = new DiagnosticReport();
                 break;
             default:
-                throw new IllegalArgumentException("Unknown report type");
+                throw new IllegalArgumentException("Unsupported report type");
         }
 
-        // Visit patient data
+        // Apply visitor pattern to generate report
         visitor.visitPatient(patient);
-
-        // Visit medical records if patient has any
-        for (MedicalRecord record : patient.getMedicalRecords()) {
-            visitor.visitMedicalRecord(record);
-        }
-
-        // Visit bills for financial reports
-        if (type == ReportType.FINANCIAL) {
-            for (Bill bill : billingController.getAllBills()) {
-                if (bill.getPatientId().equals(patientId)) {
-                    visitor.visitBill(bill);
-                }
+        if (patient.getMedicalRecords() != null) {
+            for (MedicalRecord record : patient.getMedicalRecords()) {
+                visitor.visitMedicalRecord(record);
             }
         }
 
+        // Get bills from billing controller if needed
+        List<Bill> bills = billingController.getBillsByPatient(patientId);
+        if (bills != null && !bills.isEmpty()) {
+            for (Bill bill : bills) {
+                visitor.visitBill(bill);
+            }
+        }
+
+        // Generate the final report
         return visitor.generateReport();
-    }
-
-    public enum ReportType {
-        TREATMENT_SUMMARY("Treatment Summary"),
-        FINANCIAL("Financial Statement"),
-        DIAGNOSTIC("Diagnostic Report");
-
-        private final String displayName;
-
-        ReportType(String displayName) {
-            this.displayName = displayName;
-        }
-
-        public String getDisplayName() {
-            return displayName;
-        }
     }
 }
