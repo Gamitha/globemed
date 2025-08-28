@@ -6,6 +6,7 @@ import com.globemed.core.appointment.DefaultAppointmentMediator;
 import com.globemed.core.controller.AppointmentController;
 import com.globemed.core.controller.PatientController;
 import com.globemed.core.controller.DoctorController;
+import com.globemed.core.model.Patient;
 import com.globemed.core.util.DatePickerFormatter;
 import com.globemed.core.util.DataChangeListener;
 import com.jgoodies.forms.layout.FormLayout;
@@ -17,9 +18,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.UUID;
-import java.util.Vector;
+import java.util.*;
 
 public class AppointmentPanel extends JPanel implements DataChangeListener {
     private final AppointmentMediator mediator;
@@ -33,6 +32,8 @@ public class AppointmentPanel extends JPanel implements DataChangeListener {
     private JTextArea notesArea;
     private JTable appointmentTable;
     private DefaultTableModel tableModel;
+    private JTextField patientNameField;
+    private JTextField patientIdField;
 
     public AppointmentPanel(AppointmentController appointmentController,
                           PatientController patientController,
@@ -330,12 +331,20 @@ public class AppointmentPanel extends JPanel implements DataChangeListener {
         for (Appointment appointment : appointmentController.getAllAppointments()) {
             Vector<Object> row = new Vector<>();
             row.add(appointment.getId().toString());
-            row.add(mediator.getPatient(appointment.getPatientId()).getFirstName());
+            mediator.getPatient(appointment.getPatientId())
+                .ifPresent(patient -> row.add(patient.getFirstName() + " " + patient.getLastName()));
             row.add(appointment.getDoctorId());
-            row.add(appointment.getDateTime().toString());
+            row.add(appointment.getScheduledDateTime().toString());
             row.add(appointment.getStatus());
             row.add(appointment.getNotes());
             tableModel.addRow(row);
         }
+    }
+
+    private void updatePatientInfo(Optional<Patient> patientOpt) {
+        patientOpt.ifPresent(patient -> {
+            patientNameField.setText(patient.getFirstName() + " " + patient.getLastName());
+            patientIdField.setText(patient.getId().toString());
+        });
     }
 }

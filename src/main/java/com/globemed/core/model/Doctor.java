@@ -1,5 +1,6 @@
 package com.globemed.core.model;
 
+import java.io.Serializable;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -9,7 +10,9 @@ import java.util.UUID;
  * Represents a doctor in the healthcare system.
  * Uses Builder pattern for flexible object construction.
  */
-public class Doctor {
+public class Doctor implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final UUID id;
     private final String firstName;
     private final String lastName;
@@ -33,7 +36,9 @@ public class Doctor {
     }
 
     // Builder pattern implementation
-    public static class Builder {
+    public static class Builder implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private UUID id;
         private String firstName;
         private String lastName;

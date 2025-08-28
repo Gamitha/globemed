@@ -2,6 +2,7 @@ package com.globemed.core.appointment;
 
 import com.globemed.core.model.Patient;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -14,5 +15,7 @@ public interface AppointmentMediator {
     void completeAppointment(UUID appointmentId);
     void cancelAppointment(UUID appointmentId);
     boolean checkAvailability(String doctorId, LocalDateTime dateTime);
-    Patient getPatient(UUID patientId);
+    Optional<Patient> getPatient(UUID patientId);
+    void notifyAppointmentUpdated(Appointment appointment);
+    void notifyAppointmentCancelled(Appointment appointment);
 }

@@ -5,6 +5,7 @@ import com.globemed.core.controller.BillingController;
 import com.globemed.core.controller.PatientController;
 import com.globemed.core.model.Bill;
 import com.globemed.core.model.BillItem;
+import com.globemed.core.model.BillStatus;
 import com.globemed.core.model.Patient;
 import com.globemed.core.util.DataChangeListener;
 import com.jgoodies.forms.layout.FormLayout;
@@ -38,6 +39,14 @@ public class BillingPanel extends JPanel implements DataChangeListener {
     private JTable billsTable;
     private DefaultTableModel billsTableModel;
     private JTextArea notesArea;
+
+    // Additional fields for bill details
+    private JTextField patientNameField;
+    private JTextField patientIdField;
+    private JTextField totalAmountField;
+    private JTextField policyNumberField;
+    private JButton submitClaimButton;
+    private JComboBox<String> billComboBox;
 
     public BillingPanel(BillingController billingController, PatientController patientController) {
         this.billingController = billingController;
@@ -75,7 +84,7 @@ public class BillingPanel extends JPanel implements DataChangeListener {
             "4dlu, right:pref, 4dlu, 150dlu:grow, 4dlu, pref, 4dlu",
             "4dlu, pref, 4dlu, pref, 4dlu, pref, 4dlu, " +
             "pref, 4dlu, 100dlu, 4dlu, pref, 4dlu, " +
-            "pref, 4dlu, 150dlu:grow"
+            "pref, 4dlu, pref, 4dlu, 150dlu:grow"  // Added a row for bill selection
         );
 
         PanelBuilder builder = new PanelBuilder(layout);
@@ -109,10 +118,15 @@ public class BillingPanel extends JPanel implements DataChangeListener {
         notesArea.setRows(3);
         builder.add(new JScrollPane(notesArea), cc.xy(4, 14));
 
+        // Bill Selection for Claims
+        builder.addLabel("Select Bill:", cc.xy(2, 16));
+        billComboBox = new JComboBox<>();
+        builder.add(billComboBox, cc.xy(4, 16));
+
         // Buttons panel
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton createBillButton = new JButton("Create Bill");
-        JButton submitClaimButton = new JButton("Submit Insurance Claim");
+        submitClaimButton = new JButton("Submit Insurance Claim");
 
         createBillButton.addActionListener(e -> createBill());
         submitClaimButton.addActionListener(e -> submitClaim());
@@ -120,7 +134,7 @@ public class BillingPanel extends JPanel implements DataChangeListener {
         buttonsPanel.add(createBillButton);
         buttonsPanel.add(submitClaimButton);
 
-        builder.add(buttonsPanel, cc.xyw(2, 16, 5));
+        builder.add(buttonsPanel, cc.xyw(2, 18, 5));
 
         // Bills table
         createBillsTable();
@@ -168,7 +182,7 @@ public class BillingPanel extends JPanel implements DataChangeListener {
         patientSelector.addActionListener(e -> {
             UUID patientId = getSelectedPatientId();
             if (patientId != null) {
-                Optional<Patient> patient = patientController.getPatient(patientId);
+                Optional<Patient> patient = patientController.getPatient(patientId.toString());
                 patient.ifPresent(this::updateInsuranceFields);
             } else {
                 clearInsuranceFields();
@@ -402,35 +416,61 @@ public class BillingPanel extends JPanel implements DataChangeListener {
         }
     }
 
+    private void handleBillSelection(String selectedBillId) {
+        if (selectedBillId != null) {
+            billingController.getBill(UUID.fromString(selectedBillId)).ifPresent(bill -> {
+                updateBillDetails(bill);
+                submitClaimButton.setEnabled(true);
+            });
+        }
+    }
+
+    private void updateBillDetails(Bill bill) {
+        patientController.getPatient(bill.getPatientId().toString()).ifPresent(patient -> {
+            patientNameField.setText(patient.getFirstName() + " " + patient.getLastName());
+            patientIdField.setText(patient.getId().toString());
+        });
+
+        totalAmountField.setText(bill.getTotalAmount().toString());
+        insuranceProviderField.setText(bill.getInsuranceProvider());
+        policyNumberField.setText(bill.getInsurancePolicyNumber());
+    }
+
     private void submitClaim() {
-        int selectedRow = billsTable.getSelectedRow();
-        if (selectedRow < 0) {
-            JOptionPane.showMessageDialog(this,
-                "Please select a bill to submit claim",
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
+        String selectedBillLabel = (String) billComboBox.getSelectedItem();
+        if (selectedBillLabel == null || selectedBillLabel.isEmpty()) {
+            showError("Please select a bill first");
             return;
         }
 
         try {
-            UUID billId = UUID.fromString((String) billsTableModel.getValueAt(selectedRow, 0));
-            Optional<Bill> billOpt = billingController.getBill(billId);
+            // Extract bill ID from the label (format: "Bill #12345678 - PatientName - $Amount")
+            String billId = selectedBillLabel.substring(6, 14);
 
-            if (billOpt.isPresent()) {
-                Bill bill = billOpt.get();
-                InsuranceClaim claim = billingController.submitClaim(bill);
-                refreshBillsTable();
-
-                JOptionPane.showMessageDialog(this,
-                    "Claim submitted successfully!\nStatus: " + claim.getStatus(),
-                    "Success",
-                    JOptionPane.INFORMATION_MESSAGE);
+            // Find the full bill in the table data
+            for (int i = 0; i < billsTableModel.getRowCount(); i++) {
+                String fullBillId = (String) billsTableModel.getValueAt(i, 0);
+                if (fullBillId.startsWith(billId)) {
+                    billingController.getBill(UUID.fromString(fullBillId)).ifPresent(bill -> {
+                        try {
+                            billingController.submitClaim(bill);
+                            bill.setStatus(BillStatus.INSURANCE_SUBMITTED); // Using correct enum value
+                            billingController.updateBill(bill); // Save the updated bill
+                            refreshBillsTable();  // Refresh to show updated status
+                            JOptionPane.showMessageDialog(this,
+                                "Insurance claim submitted successfully!",
+                                "Success",
+                                JOptionPane.INFORMATION_MESSAGE);
+                        } catch (Exception ex) {
+                            showError("Failed to submit claim: " + ex.getMessage());
+                        }
+                    });
+                    return;
+                }
             }
+            showError("Could not find the selected bill");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this,
-                "Error submitting claim: " + e.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
+            showError("Error processing claim: " + e.getMessage());
         }
     }
 
@@ -444,9 +484,10 @@ public class BillingPanel extends JPanel implements DataChangeListener {
 
     private void refreshBillsTable() {
         billsTableModel.setRowCount(0);
+        billComboBox.removeAllItems();  // Clear the bill combo box
 
         for (Bill bill : billingController.getAllBills()) {
-            Optional<Patient> patientOpt = patientController.getPatient(bill.getPatientId());
+            Optional<Patient> patientOpt = patientController.getPatient(bill.getPatientId().toString());
             String patientName = patientOpt.map(p -> p.getFirstName() + " " + p.getLastName())
                                          .orElse("Unknown");
 
@@ -459,6 +500,31 @@ public class BillingPanel extends JPanel implements DataChangeListener {
                 bill.getRemainingAmount()
             };
             billsTableModel.addRow(row);
+
+            // Add to bill combo box with a descriptive label
+            String billLabel = String.format("Bill #%s - %s - $%s",
+                bill.getId().toString().substring(0, 8),
+                patientName,
+                bill.getTotalAmount().toString());
+            billComboBox.addItem(billLabel);
         }
+    }
+
+    private void refreshClaimsList() {
+        // Clear and refresh claims list
+        billsTableModel.setRowCount(0);
+        billingController.getAllClaims().forEach(claim -> {
+            billsTableModel.addRow(new Object[]{
+                claim.getId().toString(),
+                claim.getStatus().getDisplayName(),
+                claim.getAmount(),
+                claim.getApprovedAmount(),
+                claim.getNotes()
+            });
+        });
+    }
+
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
     }
 }

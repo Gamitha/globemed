@@ -1,9 +1,12 @@
 package com.globemed.core.model;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public class MedicalRecord {
+public class MedicalRecord implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private UUID id;
     private UUID patientId;
     private LocalDateTime dateTime;
@@ -21,7 +24,8 @@ public class MedicalRecord {
     }
 
     // Builder Pattern
-    public static class Builder {
+    public static class Builder implements Serializable {
+        private static final long serialVersionUID = 1L;
         private MedicalRecord record;
 
         public Builder() {
@@ -94,4 +98,7 @@ public class MedicalRecord {
     public String getTestsPerformed() { return testsPerformed != null ? testsPerformed : ""; }
     public String getTestResults() { return testResults != null ? testResults : ""; }
     public String getRecommendations() { return recommendations != null ? recommendations : ""; }
+    public LocalDateTime getDate() {
+        return dateTime;
+    }
 }

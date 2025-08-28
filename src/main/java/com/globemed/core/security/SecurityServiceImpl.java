@@ -6,109 +6,181 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SecurityServiceImpl implements SecurityService {
     private static final Logger log = Logger.getLogger(SecurityServiceImpl.class);
+    private static final String SYSTEM_USER = "system";
     private String currentUser;
+    private final Map<String, String> userCredentials = new ConcurrentHashMap<>();
+    private final Map<String, Set<Role>> userRoles = new ConcurrentHashMap<>();
+    private final Map<String, Set<Permission>> userPermissions = new ConcurrentHashMap<>();
 
-    // Thread-safe maps for storing user credentials and roles
-    private final Map<String, String> userCredentials;
-    private final Map<String, Set<Role>> userRoles;
+    // Store original permissions for restoration
+    private final Map<String, Set<Permission>> originalPermissions = new ConcurrentHashMap<>();
 
     public SecurityServiceImpl() {
-        this.userCredentials = new ConcurrentHashMap<>();
-        this.userRoles = new ConcurrentHashMap<>();
+        // Initialize system user first
+        initializeSystemUser();
+        // Set system context for initialization
+        currentUser = SYSTEM_USER;
+        // Initialize other users
         initializeUsers();
     }
 
+    private void initializeSystemUser() {
+        userCredentials.put(SYSTEM_USER, UUID.randomUUID().toString());
+        userRoles.put(SYSTEM_USER, new HashSet<>(Collections.singleton(Role.ADMIN)));
+        userPermissions.put(SYSTEM_USER, new HashSet<>(Arrays.asList(Permission.values())));
+    }
+
     private void initializeUsers() {
-        // Admin user
+        // Initialize admin user
         userCredentials.put("admin", "admin123");
-        userRoles.put("admin", new HashSet<>(Collections.singletonList(Role.ADMIN)));
+        userRoles.put("admin", new HashSet<>(Collections.singleton(Role.ADMIN)));
+        userPermissions.put("admin", new HashSet<>(Arrays.asList(Permission.values())));
 
-        // Doctor users
-        userCredentials.put("dr.smith", "doctor123");
-        userRoles.put("dr.smith", new HashSet<>(Collections.singletonList(Role.DOCTOR)));
+        // Initialize doctor users
+        initializeDoctor("dr.smith", "doctor123");
+        initializeDoctor("dr.jones", "doctor456");
 
-        userCredentials.put("dr.jones", "doctor456");
-        userRoles.put("dr.jones", new HashSet<>(Collections.singletonList(Role.DOCTOR)));
+        // Initialize nurse users
+        initializeNurse("nurse1", "nurse123");
+        initializeNurse("nurse2", "nurse456");
 
-        // Nurse users
-        userCredentials.put("nurse1", "nurse123");
-        userRoles.put("nurse1", new HashSet<>(Collections.singletonList(Role.NURSE)));
-
-        userCredentials.put("nurse2", "nurse456");
-        userRoles.put("nurse2", new HashSet<>(Collections.singletonList(Role.NURSE)));
-
-        // Front desk users
-        userCredentials.put("desk1", "desk123");
-        userRoles.put("desk1", new HashSet<>(Collections.singletonList(Role.RECEPTIONIST)));
+        // Initialize receptionist users
+        initializeReceptionist("desk1", "desk123");
 
         log.info("Initialized {} users in the system", userCredentials.size());
     }
 
+    private void initializeDoctor(String username, String password) {
+        userCredentials.put(username, password);
+        userRoles.put(username, new HashSet<>(Collections.singleton(Role.DOCTOR)));
+        userPermissions.put(username, new HashSet<>(Arrays.asList(
+            Permission.READ, Permission.WRITE,
+            Permission.READ_PATIENT, Permission.WRITE_PATIENT,
+            Permission.READ_APPOINTMENT, Permission.WRITE_APPOINTMENT,
+            Permission.READ_BILLING
+        )));
+    }
+
+    private void initializeNurse(String username, String password) {
+        userCredentials.put(username, password);
+        userRoles.put(username, new HashSet<>(Collections.singleton(Role.NURSE)));
+        userPermissions.put(username, new HashSet<>(Arrays.asList(
+            Permission.READ, Permission.WRITE,
+            Permission.READ_PATIENT, Permission.WRITE_PATIENT,
+            Permission.READ_APPOINTMENT, Permission.WRITE_APPOINTMENT
+        )));
+    }
+
+    private void initializeReceptionist(String username, String password) {
+        userCredentials.put(username, password);
+        userRoles.put(username, new HashSet<>(Collections.singleton(Role.RECEPTIONIST)));
+        userPermissions.put(username, new HashSet<>(Arrays.asList(
+            Permission.READ,
+            Permission.READ_APPOINTMENT, Permission.WRITE_APPOINTMENT
+        )));
+    }
+
     @Override
     public boolean hasAccess(String userId, String resourceId, Set<Permission> requiredPermissions) {
-        log.info("Checking access for user {} on resource {}", userId, resourceId);
-        try {
-            return hasRole(Role.ADMIN) || hasRole(Role.DOCTOR); // Simplified for now
-        } catch (Exception e) {
-            log.error("Error checking access for user {} on resource {}", userId, resourceId);
+        if (currentUser == null || !currentUser.equals(userId)) {
             return false;
+        }
+
+        Set<Permission> userPerms = userPermissions.getOrDefault(userId, Collections.emptySet());
+        return userPerms.containsAll(requiredPermissions);
+    }
+
+    @Override
+    public void checkAccess(String userId, String resourceId, Set<Permission> requiredPermissions) {
+        if (!hasAccess(userId, resourceId, requiredPermissions)) {
+            throw new SecurityException("Access denied for user: " + userId);
         }
     }
 
     @Override
-    public void checkAccess(String userId, String resourceId, Set<Permission> requiredPermissions) throws SecurityException {
-        log.info("Enforcing access check for user {} on resource {}", userId, resourceId);
-        if (!hasAccess(userId, resourceId, requiredPermissions)) {
-            log.error("Access denied for user {} on resource {}", userId, resourceId);
-            throw new SecurityException("Access denied");
+    public boolean hasPermission(Permission permission) {
+        if (currentUser == null) {
+            return false;
         }
+        Set<Permission> userPerms = userPermissions.getOrDefault(currentUser, Collections.emptySet());
+        return userPerms.contains(permission) || hasRole(Role.ADMIN);
     }
 
     @Override
     public boolean authenticate(String username, String password) {
-        log.info("Authentication attempt for user: {}", username);
-        try {
-            if (!userCredentials.containsKey(username)) {
-                log.error("Authentication failed: User {} not found", username);
-                return false;
-            }
-
-            if (!userCredentials.get(username).equals(password)) {
-                log.error("Authentication failed: Invalid password for user {}", username);
-                return false;
-            }
-
-            currentUser = username;
-            log.info("Authentication successful for user: {}", username);
-            return true;
-        } catch (Exception e) {
-            log.error("Authentication error for user: {}", username, e);
+        if (username == null || password == null) {
             return false;
         }
+
+        String storedPassword = userCredentials.get(username);
+        if (storedPassword != null && storedPassword.equals(password)) {
+            currentUser = username;
+            log.info("User authenticated successfully: {}", username);
+            return true;
+        }
+
+        log.warn("Authentication failed for user: {}", username);
+        return false;
     }
 
     @Override
     public String getCurrentUser() {
-        return currentUser != null ? currentUser : "anonymous";
+        return currentUser != null ? currentUser : SYSTEM_USER;
     }
 
     @Override
     public boolean hasRole(Role role) {
-        if (role == null || getCurrentUser().equals("anonymous")) {
+        if (role == null || currentUser == null) {
             return false;
         }
 
-        try {
-            Set<Role> roles = userRoles.get(getCurrentUser());
-            if (roles == null) {
-                return false;
-            }
+        Set<Role> roles = userRoles.get(currentUser);
+        return roles != null && (roles.contains(role) || roles.contains(Role.ADMIN));
+    }
 
-            // Admin has all roles
-            return roles.contains(Role.ADMIN) || roles.contains(role);
-        } catch (Exception e) {
-            log.error("Error checking role {} for user {}", role, getCurrentUser(), e);
-            return false;
+    @Override
+    public void elevatePermissions(Permission permission) {
+        String user = getCurrentUser();
+        if (user == null) {
+            throw new SecurityException("No user logged in");
+        }
+
+        // Store original permissions if not already stored
+        if (!originalPermissions.containsKey(user)) {
+            Set<Permission> current = userPermissions.getOrDefault(user, new HashSet<>());
+            originalPermissions.put(user, new HashSet<>(current));
+        }
+
+        // Add the new permission
+        Set<Permission> elevated = new HashSet<>(userPermissions.getOrDefault(user, new HashSet<>()));
+        elevated.add(permission);
+        userPermissions.put(user, elevated);
+
+        log.info("Temporarily elevated permissions for user: {} with permission: {}", user, permission);
+    }
+
+    @Override
+    public void resetPermissions() {
+        String user = getCurrentUser();
+        if (user == null) {
+            throw new SecurityException("No user logged in");
+        }
+
+        // Restore original permissions if they exist
+        Set<Permission> original = originalPermissions.remove(user);
+        if (original != null) {
+            userPermissions.put(user, original);
+            log.info("Reset permissions for user: {}", user);
+        }
+    }
+
+    public void setSystemContext() {
+        this.currentUser = SYSTEM_USER;
+    }
+
+    public void clearSystemContext() {
+        if (SYSTEM_USER.equals(currentUser)) {
+            this.currentUser = null;
         }
     }
 }

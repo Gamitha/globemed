@@ -1,11 +1,14 @@
 package com.globemed.core.model;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class Patient {
+public class Patient implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final UUID id;
     private final String firstName;
     private final String lastName;
@@ -29,7 +32,8 @@ public class Patient {
     }
 
     // Builder pattern implementation
-    public static class Builder {
+    public static class Builder implements Serializable {
+        private static final long serialVersionUID = 1L;
         private UUID id;
         private String firstName;
         private String lastName;

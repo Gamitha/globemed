@@ -1,21 +1,19 @@
 package com.globemed.core.controller;
 
-import com.globemed.core.model.Patient;
-import com.globemed.core.model.MedicalRecord;
-import com.globemed.core.model.Bill;
-import com.globemed.core.report.ReportVisitor;
-import com.globemed.core.report.TreatmentSummaryReport;
-import com.globemed.core.report.FinancialReport;
-import com.globemed.core.report.DiagnosticReport;
+import com.globemed.core.model.*;
+import com.globemed.core.report.*;
 import com.globemed.core.security.Permission;
 import com.globemed.core.security.SecurityService;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ReportController {
     private final SecurityService securityService;
     private final PatientController patientController;
     private final BillingController billingController;
+    private final List<ReportVisitor> visitors;
 
     public ReportController(SecurityService securityService,
                           PatientController patientController,
@@ -23,61 +21,64 @@ public class ReportController {
         this.securityService = securityService;
         this.patientController = patientController;
         this.billingController = billingController;
+        this.visitors = new ArrayList<>();
+        initializeVisitors();
     }
 
-    public enum ReportType {
-        TREATMENT_SUMMARY,
-        FINANCIAL,
-        DIAGNOSTIC
+    private void initializeVisitors() {
+        visitors.add(new DiagnosticReport());
+        visitors.add(new FinancialReport());
+        visitors.add(new TreatmentSummaryReport());
     }
 
-    public String generateReport(UUID patientId, ReportType type) {
-        // Check permissions
+    private Optional<Patient> getPatient(UUID patientId) {
+        return patientController.getPatient(patientId.toString());
+    }
+
+    public List<String> generatePatientReport(UUID patientId) {
         securityService.checkAccess(
             securityService.getCurrentUser(),
             "report:generate",
             Set.of(Permission.READ)
         );
 
-        Optional<Patient> patientOpt = patientController.getPatient(patientId);
-        if (patientOpt.isEmpty()) {
+        Optional<Patient> patient = getPatient(patientId);
+        if (patient.isEmpty()) {
             throw new IllegalArgumentException("Patient not found");
         }
 
-        Patient patient = patientOpt.get();
-        ReportVisitor visitor;
-
-        switch (type) {
-            case TREATMENT_SUMMARY:
-                visitor = new TreatmentSummaryReport();
-                break;
-            case FINANCIAL:
-                visitor = new FinancialReport();
-                break;
-            case DIAGNOSTIC:
-                visitor = new DiagnosticReport();
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported report type");
+        List<String> reportSections = new ArrayList<>();
+        for (ReportVisitor visitor : visitors) {
+            reportSections.add(visitor.visit(patient.get()));
         }
+        return reportSections;
+    }
 
-        // Apply visitor pattern to generate report
-        visitor.visitPatient(patient);
-        if (patient.getMedicalRecords() != null) {
-            for (MedicalRecord record : patient.getMedicalRecords()) {
-                visitor.visitMedicalRecord(record);
-            }
-        }
+    public List<String> generateFinancialReport(LocalDateTime startDate, LocalDateTime endDate) {
+        securityService.checkAccess(
+            securityService.getCurrentUser(),
+            "report:generate",
+            Set.of(Permission.READ)
+        );
 
-        // Get bills from billing controller if needed
+        List<Bill> bills = billingController.getBillsByDateRange(startDate, endDate);
+        FinancialReport report = new FinancialReport();
+        return bills.stream()
+                .map(report::visit)
+                .collect(Collectors.toList());
+    }
+
+    public List<String> generateBillingReport(UUID patientId) {
+        securityService.checkAccess(
+            securityService.getCurrentUser(),
+            "report:generate",
+            Set.of(Permission.READ)
+        );
+
         List<Bill> bills = billingController.getBillsByPatient(patientId);
-        if (bills != null && !bills.isEmpty()) {
-            for (Bill bill : bills) {
-                visitor.visitBill(bill);
-            }
-        }
-
-        // Generate the final report
-        return visitor.generateReport();
+        FinancialReport report = new FinancialReport();
+        return bills.stream()
+                .map(report::visit)
+                .collect(Collectors.toList());
     }
 }

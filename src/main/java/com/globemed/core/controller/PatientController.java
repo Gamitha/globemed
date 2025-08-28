@@ -8,24 +8,31 @@ import com.globemed.core.security.Role;
 import com.globemed.core.security.SecurityService;
 import com.globemed.core.util.DataChangeListener;
 import com.globemed.core.util.Logger;
+import com.globemed.core.repository.PatientRepository;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Controller for managing patient records and medical data.
- * Implements security checks and maintains data consistency.
+ * Implements security checks and maintains data persistence using MapDB.
  */
 public class PatientController {
     private static final Logger log = Logger.getLogger(PatientController.class);
     private final SecurityService securityService;
-    private final Map<UUID, Patient> patients;
+    private final PatientRepository patientRepository;
     private final List<DataChangeListener> listeners = new ArrayList<>();
 
     public PatientController(SecurityService securityService) {
         this.securityService = securityService;
-        this.patients = new ConcurrentHashMap<>();
-        addSamplePatients();
+        this.patientRepository = new PatientRepository(securityService);
+
+        // Use system context for initialization
+        securityService.setSystemContext();
+        try {
+            addSamplePatients();
+        } finally {
+            securityService.clearSystemContext();
+        }
     }
 
     public String getCurrentUser() {
@@ -52,26 +59,17 @@ public class PatientController {
             "patient:create",
             Set.of(Permission.WRITE)
         );
-        patients.put(patient.getId(), patient);
-        notifyListeners();
-    }
-
-    public Optional<Patient> getPatient(UUID id) {
-        securityService.checkAccess(
-            securityService.getCurrentUser(),
-            "patient:read",
-            Set.of(Permission.READ)
-        );
-        return Optional.ofNullable(patients.get(id));
-    }
-
-    public List<Patient> getAllPatients() {
-        securityService.checkAccess(
-            securityService.getCurrentUser(),
-            "patient:read",
-            Set.of(Permission.READ)
-        );
-        return new ArrayList<>(patients.values());
+        try {
+            patientRepository.save(patient);
+            notifyListeners();
+            log.info("Patient added successfully: " + patient.getId());
+        } catch (SecurityException e) {
+            log.error("Security violation while adding patient: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error adding patient: " + e.getMessage());
+            throw new RuntimeException("Failed to add patient", e);
+        }
     }
 
     public void updatePatient(Patient patient) {
@@ -81,32 +79,60 @@ public class PatientController {
             Set.of(Permission.WRITE)
         );
 
-        if (!patients.containsKey(patient.getId())) {
+        if (!getPatient(patient.getId().toString()).isPresent()) {
             throw new IllegalArgumentException("Patient not found");
         }
-        patients.put(patient.getId(), patient);
-        notifyListeners();
+        try {
+            patientRepository.save(patient);
+            notifyListeners();
+            log.info("Patient updated successfully: {}", patient.getId());
+        } catch (Exception e) {
+            log.error("Error updating patient: {}", e.getMessage());
+            throw new RuntimeException("Failed to update patient", e);
+        }
     }
 
-    public Map<String, UUID> getPatientDisplayMap() {
+    public Optional<Patient> getPatient(String id) {
+        try {
+            return patientRepository.findById(id);
+        } catch (SecurityException e) {
+            log.error("Security violation while retrieving patient: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error retrieving patient: " + e.getMessage());
+            throw new RuntimeException("Failed to retrieve patient", e);
+        }
+    }
+
+    public List<Patient> getAllPatients() {
+        try {
+            return patientRepository.findAll();
+        } catch (SecurityException e) {
+            log.error("Security violation while retrieving patients: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error retrieving patients: " + e.getMessage());
+            throw new RuntimeException("Failed to retrieve patients", e);
+        }
+    }
+
+    public void deletePatient(String id) {
         securityService.checkAccess(
             securityService.getCurrentUser(),
-            "patient:read",
-            Set.of(Permission.READ)
+            "patient:delete",
+            Set.of(Permission.WRITE)
         );
-
-        Map<String, UUID> displayMap = new LinkedHashMap<>();
-        getAllPatients().stream()
-            .sorted(Comparator.comparing(Patient::getLastName)
-                    .thenComparing(Patient::getFirstName))
-            .forEach(p -> displayMap.put(
-                String.format("%s, %s (ID: %s)",
-                    p.getLastName(),
-                    p.getFirstName(),
-                    p.getId().toString().substring(0, 8)),
-                p.getId()
-            ));
-        return displayMap;
+        try {
+            patientRepository.delete(id);
+            notifyListeners();
+            log.info("Patient deleted successfully: " + id);
+        } catch (SecurityException e) {
+            log.error("Security violation while deleting patient: " + e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error deleting patient: " + e.getMessage());
+            throw new RuntimeException("Failed to delete patient", e);
+        }
     }
 
     private void addSamplePatients() {
@@ -139,7 +165,7 @@ public class PatientController {
                 .withEmail("john.doe@example.com")
                 .withInsurance("POL-123456", "MediCare Plus")
                 .build();
-            patients.put(patient1.getId(), patient1);
+            patientRepository.save(patient1);
 
             // Add medical records for patient 1
             MedicalRecord record1 = new MedicalRecord.Builder()
@@ -163,7 +189,7 @@ public class PatientController {
                 .withEmail("jane.smith@example.com")
                 .withInsurance("POL-789012", "HealthFirst")
                 .build();
-            patients.put(patient2.getId(), patient2);
+            patientRepository.save(patient2);
 
             // Add medical records for patient 2
             MedicalRecord record2 = new MedicalRecord.Builder()
@@ -187,7 +213,7 @@ public class PatientController {
                 .withEmail("robert.j@example.com")
                 .withInsurance("POL-345678", "Global Health")
                 .build();
-            patients.put(patient3.getId(), patient3);
+            patientRepository.save(patient3);
 
             // Add medical records for patient 3
             MedicalRecord record3 = new MedicalRecord.Builder()
@@ -207,51 +233,60 @@ public class PatientController {
         }
     }
 
-    public void addMedicalRecord(UUID patientId, MedicalRecord record) {
+    public boolean addMedicalRecord(UUID patientId, MedicalRecord record) {
         securityService.checkAccess(
             securityService.getCurrentUser(),
             "medical:create",
             Set.of(Permission.WRITE)
         );
 
-        Optional<Patient> patient = getPatient(patientId);
+        Optional<Patient> patient = getPatient(patientId.toString());
         if (patient.isEmpty()) {
             throw new IllegalArgumentException("Patient not found");
         }
 
-        // If record already has a doctorId (set by admin via UI), use it
-        UUID doctorId = record.getDoctorId();
+        try {
+            // If record already has a doctorId (set by admin via UI), use it
+            UUID doctorId = record.getDoctorId();
 
-        // If no doctorId set, determine it based on user role
-        if (doctorId == null) {
-            if (securityService.hasRole(Role.ADMIN)) {
-                throw new IllegalStateException("Admin users must select a doctor when creating medical records");
-            } else {
-                // Current user must be a doctor, get their ID
-                String currentUser = securityService.getCurrentUser();
-                doctorId = getAllDoctors().stream()
-                    .filter(d -> d.getId().toString().startsWith(currentUser))
-                    .findFirst()
-                    .map(Doctor::getId)
-                    .orElseThrow(() -> new IllegalStateException("Current user is not a valid doctor"));
+            // If no doctorId set, determine it based on user role
+            if (doctorId == null) {
+                if (securityService.hasRole(Role.ADMIN)) {
+                    throw new IllegalStateException("Admin users must select a doctor when creating medical records");
+                } else {
+                    // Current user must be a doctor, get their ID
+                    String currentUser = securityService.getCurrentUser();
+                    doctorId = getAllDoctors().stream()
+                        .filter(d -> d.getId().toString().startsWith(currentUser))
+                        .findFirst()
+                        .map(Doctor::getId)
+                        .orElseThrow(() -> new IllegalStateException("Current user is not a valid doctor"));
+                }
             }
+
+            // Create a new record with all fields, ensuring doctorId is set
+            MedicalRecord finalRecord = new MedicalRecord.Builder()
+                .withPatientId(patientId)
+                .withDiagnosis(record.getDiagnosis())
+                .withTreatment(record.getTreatment())
+                .withTestsPerformed(record.getTestsPerformed())
+                .withTestResults(record.getTestResults())
+                .withRecommendations(record.getRecommendations())
+                .withNotes(record.getNotes())
+                .withDoctorId(doctorId)
+                .build();
+
+            Patient updatedPatient = patient.get();
+            updatedPatient.addMedicalRecord(finalRecord);
+            patientRepository.save(updatedPatient);
+            log.info("Added medical record for patient: {}", patientId);
+            notifyListeners();
+
+            return true;
+        } catch (Exception e) {
+            log.error("Error adding medical record: {}", e.getMessage());
+            return false;
         }
-
-        // Create a new record with all fields, ensuring doctorId is set
-        MedicalRecord finalRecord = new MedicalRecord.Builder()
-            .withPatientId(patientId)
-            .withDiagnosis(record.getDiagnosis())
-            .withTreatment(record.getTreatment())
-            .withTestsPerformed(record.getTestsPerformed())
-            .withTestResults(record.getTestResults())
-            .withRecommendations(record.getRecommendations())
-            .withNotes(record.getNotes())
-            .withDoctorId(doctorId)
-            .build();
-
-        patient.get().addMedicalRecord(finalRecord);
-        log.info("Added medical record for patient: {}", patientId);
-        notifyListeners();
     }
 
     public boolean hasRole(Role role) {
@@ -278,6 +313,26 @@ public class PatientController {
                 doctor.getId()
             );
         }
+        return displayMap;
+    }
+
+    public Map<String, UUID> getPatientDisplayMap() {
+        securityService.checkAccess(
+            securityService.getCurrentUser(),
+            "patient:read",
+            Set.of(Permission.READ)
+        );
+
+        Map<String, UUID> displayMap = new LinkedHashMap<>();
+        getAllPatients().forEach(patient -> {
+            displayMap.put(
+                String.format("%s, %s (ID: %s)",
+                    patient.getLastName(),
+                    patient.getFirstName(),
+                    patient.getId().toString().substring(0, 8)),
+                patient.getId()
+            );
+        });
         return displayMap;
     }
 

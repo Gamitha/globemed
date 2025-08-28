@@ -1,96 +1,40 @@
 package com.globemed.core.appointment;
 
-public interface AppointmentState {
+import java.io.Serializable;
+
+/**
+ * Defines the state interface for appointments using the State pattern.
+ * Valid state transitions are:
+ * - REQUESTED -> CONFIRMED or CANCELLED
+ * - CONFIRMED -> COMPLETED or CANCELLED
+ * - COMPLETED -> (no further transitions)
+ * - CANCELLED -> (no further transitions)
+ */
+public interface AppointmentState extends Serializable {
+    /**
+     * Confirms an appointment. Only valid from REQUESTED state.
+     * @param appointment The appointment to confirm
+     * @throws IllegalStateException if confirmation is not allowed in current state
+     */
     void confirm(Appointment appointment);
+
+    /**
+     * Marks an appointment as completed. Only valid from CONFIRMED state.
+     * @param appointment The appointment to complete
+     * @throws IllegalStateException if completion is not allowed in current state
+     */
     void complete(Appointment appointment);
+
+    /**
+     * Cancels an appointment. Valid from REQUESTED or CONFIRMED states.
+     * @param appointment The appointment to cancel
+     * @throws IllegalStateException if cancellation is not allowed in current state
+     */
     void cancel(Appointment appointment);
+
+    /**
+     * Gets the current status of the appointment.
+     * @return String representation of the current state
+     */
     String getStatus();
-}
-
-class RequestedState implements AppointmentState {
-    @Override
-    public void confirm(Appointment appointment) {
-        appointment.setState(new ConfirmedState());
-    }
-
-    @Override
-    public void complete(Appointment appointment) {
-        throw new IllegalStateException("Cannot complete a requested appointment");
-    }
-
-    @Override
-    public void cancel(Appointment appointment) {
-        appointment.setState(new CancelledState());
-    }
-
-    @Override
-    public String getStatus() {
-        return "REQUESTED";
-    }
-}
-
-class ConfirmedState implements AppointmentState {
-    @Override
-    public void confirm(Appointment appointment) {
-        throw new IllegalStateException("Appointment is already confirmed");
-    }
-
-    @Override
-    public void complete(Appointment appointment) {
-        appointment.setState(new CompletedState());
-    }
-
-    @Override
-    public void cancel(Appointment appointment) {
-        appointment.setState(new CancelledState());
-    }
-
-    @Override
-    public String getStatus() {
-        return "CONFIRMED";
-    }
-}
-
-class CompletedState implements AppointmentState {
-    @Override
-    public void confirm(Appointment appointment) {
-        throw new IllegalStateException("Cannot confirm a completed appointment");
-    }
-
-    @Override
-    public void complete(Appointment appointment) {
-        throw new IllegalStateException("Appointment is already completed");
-    }
-
-    @Override
-    public void cancel(Appointment appointment) {
-        throw new IllegalStateException("Cannot cancel a completed appointment");
-    }
-
-    @Override
-    public String getStatus() {
-        return "COMPLETED";
-    }
-}
-
-class CancelledState implements AppointmentState {
-    @Override
-    public void confirm(Appointment appointment) {
-        throw new IllegalStateException("Cannot confirm a cancelled appointment");
-    }
-
-    @Override
-    public void complete(Appointment appointment) {
-        throw new IllegalStateException("Cannot complete a cancelled appointment");
-    }
-
-    @Override
-    public void cancel(Appointment appointment) {
-        throw new IllegalStateException("Appointment is already cancelled");
-    }
-
-    @Override
-    public String getStatus() {
-        return "CANCELLED";
-    }
 }

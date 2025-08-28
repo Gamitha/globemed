@@ -284,7 +284,7 @@ public class MedicalRecordPanel extends JPanel implements DataChangeListener {
     private void refreshRecordsTable(UUID patientId) {
         tableModel.setRowCount(0);
         if (patientId != null) {
-            Optional<Patient> patient = patientController.getPatient(patientId);
+            Optional<Patient> patient = patientController.getPatient(patientId.toString());
             patient.ifPresent(p -> {
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
                 for (MedicalRecord record : p.getMedicalHistory()) {
@@ -295,6 +295,36 @@ public class MedicalRecordPanel extends JPanel implements DataChangeListener {
                     });
                 }
             });
+        }
+    }
+
+    /**
+     * Gets the UUID of the currently selected doctor from the doctor selector.
+     * Reserved for future use when implementing direct doctor assignment functionality.
+     * @return UUID of selected doctor, or null if no doctor selected or user is not admin
+     */
+    private UUID getSelectedDoctorId() {
+        if (!isAdminUser) {
+            return null; // Will be handled by the controller for non-admin users
+        }
+        String selectedDoctor = (String) doctorSelector.getSelectedItem();
+        if (selectedDoctor == null || selectedDoctor.isEmpty()) {
+            return null;
+        }
+        return doctorController.getDoctorDisplayMap().get(selectedDoctor);
+    }
+
+    /**
+     * Refreshes the medical records table based on the currently selected patient.
+     * Reserved for future use when implementing bulk record updates or patient switching.
+     */
+    private void refreshRecordsTable() {
+        String selectedPatient = (String) patientSelector.getSelectedItem();
+        if (selectedPatient != null && !selectedPatient.isEmpty()) {
+            UUID patientId = patientController.getPatientDisplayMap().get(selectedPatient);
+            refreshRecordsTable(patientId);
+        } else {
+            tableModel.setRowCount(0);
         }
     }
 
@@ -335,9 +365,14 @@ public class MedicalRecordPanel extends JPanel implements DataChangeListener {
                 .withNotes(notesArea.getText())
                 .build();
 
-            patientController.addMedicalRecord(patientId, record);
-            clearForm();
-            refreshRecordsTable(patientId);
+            if (patientController.addMedicalRecord(patientId, record)) {
+                clearForm();
+                // Ensure table refresh happens on EDT after successful save
+                SwingUtilities.invokeLater(() -> {
+                    refreshRecordsTable(patientId);
+                    tableModel.fireTableDataChanged();
+                });
+            }
         } catch (IllegalStateException e) {
             JOptionPane.showMessageDialog(this,
                 "Error saving medical record: " + e.getMessage(),

@@ -1,15 +1,18 @@
 package com.globemed.core.model;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class Bill {
+public class Bill implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final UUID id;
     private final UUID patientId;
-    private final LocalDateTime dateTime;
+    private final LocalDateTime dateCreated;
     private final List<BillItem> items;
     private final BigDecimal totalAmount;
     private BillStatus status;
@@ -19,9 +22,9 @@ public class Bill {
     private String notes;
 
     private Bill(Builder builder) {
-        this.id = UUID.randomUUID();
+        this.id = builder.id;
         this.patientId = builder.patientId;
-        this.dateTime = LocalDateTime.now();
+        this.dateCreated = builder.dateCreated;
         this.items = new ArrayList<>(builder.items);
         this.totalAmount = calculateTotal();
         this.status = BillStatus.PENDING;
@@ -31,22 +34,41 @@ public class Bill {
         this.notes = builder.notes;
     }
 
-    private BigDecimal calculateTotal() {
-        return items.stream()
-                .map(BillItem::getTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
+    // Builder pattern implementation
+    public static class Builder implements Serializable {
+        private static final long serialVersionUID = 1L;
 
-    // Builder Pattern
-    public static class Builder {
+        private UUID id;
         private UUID patientId;
-        private List<BillItem> items = new ArrayList<>();
+        private LocalDateTime dateCreated;
+        private List<BillItem> items;
         private String insurancePolicyNumber;
         private String insuranceProvider;
         private String notes;
 
+        public Builder() {
+            this.id = UUID.randomUUID();
+            this.dateCreated = LocalDateTime.now();
+            this.items = new ArrayList<>();
+        }
+
+        public Builder withId(UUID id) {
+            this.id = id;
+            return this;
+        }
+
         public Builder withPatientId(UUID patientId) {
             this.patientId = patientId;
+            return this;
+        }
+
+        public Builder withDateCreated(LocalDateTime dateCreated) {
+            this.dateCreated = dateCreated;
+            return this;
+        }
+
+        public Builder withItems(List<BillItem> items) {
+            this.items = new ArrayList<>(items);
             return this;
         }
 
@@ -77,10 +99,16 @@ public class Bill {
         }
     }
 
+    private BigDecimal calculateTotal() {
+        return items.stream()
+                .map(BillItem::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     // Getters
     public UUID getId() { return id; }
     public UUID getPatientId() { return patientId; }
-    public LocalDateTime getDateTime() { return dateTime; }
+    public LocalDateTime getDateCreated() { return dateCreated; }
     public List<BillItem> getItems() { return new ArrayList<>(items); }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public BillStatus getStatus() { return status; }
