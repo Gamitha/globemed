@@ -120,6 +120,23 @@
                 <configuration>
                     <mainClass>Main</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>git-pull</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>git</executable>
+                            <arguments>
+                                <argument>pull</argument>
+                                <argument>origin</argument>
+                                <argument>collection-database-impl</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
